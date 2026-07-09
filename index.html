@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <!-- 手机优先：自适应宽度，支持刘海屏安全区 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#6366f1" />
+  <title>私密相册</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- ===== 左侧导航栏（桌面端可见，移动端作为抽屉） ===== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">🔒 私密相册</div>
+      <nav class="nav">
+        <a class="nav-item" data-view="home"><span class="ni">🏠</span>首页</a>
+        <a class="nav-item" data-view="photos"><span class="ni">🖼️</span>全部照片<span class="badge" id="badge-photos"></span></a>
+        <a class="nav-item" data-view="albums"><span class="ni">📁</span>相册<span class="badge" id="badge-albums"></span></a>
+        <a class="nav-item" data-view="videos"><span class="ni">🎬</span>视频<span class="badge" id="badge-videos"></span></a>
+        <a class="nav-item" data-view="favorites"><span class="ni">⭐</span>收藏<span class="badge" id="badge-favorites"></span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <a class="nav-item" data-view="settings"><span class="ni">⚙️</span>设置</a>
+      </div>
+    </aside>
+
+    <!-- 移动端抽屉的遮罩 -->
+    <div class="overlay" id="overlay" hidden></div>
+
+    <!-- ===== 主区域 ===== -->
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-btn" id="menuBtn" aria-label="菜单">☰</button>
+        <h1 class="topbar-title" id="topTitle">首页</h1>
+        <div class="topbar-actions">
+          <div class="storage" id="storage">
+            <div class="storage-text" id="storageText">0 B / 5.0 GB</div>
+            <div class="storage-bar"><div class="storage-fill" id="storageFill"></div></div>
+          </div>
+          <button class="btn btn-primary" id="uploadBtn">＋ 上传</button>
+        </div>
+      </header>
+
+      <!-- 内容渲染区（由 app.js 动态填充） -->
+      <section class="content" id="content"></section>
+    </main>
+
+    <!-- ===== 移动端底部 Tab 栏 ===== -->
+    <nav class="tabbar" id="tabbar">
+      <a class="tab-item" data-view="home"><span class="ti">🏠</span>首页</a>
+      <a class="tab-item" data-view="photos"><span class="ti">🖼️</span>照片</a>
+      <a class="tab-item" data-view="albums"><span class="ti">📁</span>相册</a>
+      <a class="tab-item" data-view="settings"><span class="ti">👤</span>我的</a>
+    </nav>
+  </div>
+
+  <!-- 隐藏的文件选择框 -->
+  <input type="file" id="fileInput" multiple accept="image/*,video/*" hidden />
+
+  <!-- 多选操作栏 -->
+  <div class="actionbar" id="actionbar" hidden>
+    <button class="ab-btn" id="abCancel">取消</button>
+    <span class="ab-count" id="abCount">已选 0 项</span>
+    <button class="ab-btn" id="abFav">☆ 收藏</button>
+    <button class="ab-btn" id="abMove">移动到相册</button>
+    <button class="ab-btn ab-danger" id="abDel">🗑 删除</button>
+  </div>
+
+  <!-- 灯箱（全屏查看） -->
+  <div class="lightbox" id="lightbox" hidden>
+    <button class="lb-close" id="lbClose" aria-label="关闭">✕</button>
+    <button class="lb-nav lb-prev" id="lbPrev" aria-label="上一张">‹</button>
+    <div class="lb-stage" id="lbStage"></div>
+    <button class="lb-nav lb-next" id="lbNext" aria-label="下一张">›</button>
+    <div class="lb-bar">
+      <button class="lb-btn" id="lbFav">☆ 收藏</button>
+      <button class="lb-btn" id="lbDel">🗑 删除</button>
+      <span class="lb-count" id="lbCount"></span>
+    </div>
+  </div>
+
+  <!-- 通用弹窗 -->
+  <div class="modal-mask" id="modalMask" hidden>
+    <div class="modal">
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
+  </div>
+
+  <!-- 轻提示 -->
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
