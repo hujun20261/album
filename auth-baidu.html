@@ -15,35 +15,41 @@
     }
     .auth-step { margin: 16px 0; padding: 16px; background: #f8f9fa; border-radius: 8px; }
     .auth-step-title { font-weight: 600; margin-bottom: 8px; }
-    .auth-code {
-      font-family: monospace;
-      font-size: 24px;
-      font-weight: bold;
-      letter-spacing: 4px;
-      color: #6366f1;
-      background: #eef2ff;
+    .auth-input {
+      width: 100%;
       padding: 12px;
-      border-radius: 6px;
-      text-align: center;
-      margin: 12px 0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: monospace;
     }
-    .auth-link {
-      color: #6366f1;
-      word-break: break-all;
-    }
-    .copy-btn {
+    .auth-btn {
       background: #6366f1;
       color: #fff;
       border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
+      padding: 12px 24px;
+      border-radius: 8px;
       cursor: pointer;
-      margin: 8px 0;
+      width: 100%;
+      margin-top: 12px;
+      font-size: 16px;
+    }
+    .auth-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
     }
     .status { margin-top: 16px; padding: 12px; border-radius: 6px; }
     .status.waiting { background: #fef3c7; color: #92400e; }
     .status.success { background: #d1fae5; color: #065f46; }
     .status.error { background: #fee2e2; color: #991b1b; }
+    .help-text {
+      color: #666;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 12px 0;
+    }
+    .help-text ol { padding-left: 20px; }
+    .help-text li { margin: 8px 0; }
   </style>
 </head>
 <body>
@@ -55,29 +61,30 @@
       <section class="content">
         <div class="auth-container">
           <div class="auth-card">
-            <h2 style="margin-bottom:16px;">🔗 设备授权</h2>
+            <h2 style="margin-bottom:16px;">🔗 手动授权</h2>
             
-            <div class="auth-step">
-              <div class="auth-step-title">步骤 1：复制设备码</div>
-              <div class="auth-code" id="deviceCode">获取中...</div>
-              <button class="copy-btn" id="copyBtn" disabled>复制设备码</button>
+            <div class="help-text">
+              <p><strong>授权步骤：</strong></p>
+              <ol>
+                <li>点击下方按钮打开百度授权页面</li>
+                <li>登录你的百度账号并授权</li>
+                <li>授权成功后会跳转到回调页面</li>
+                <li>复制回调页面显示的 Token</li>
+                <li>粘贴到下方输入框，点击保存</li>
+              </ol>
             </div>
             
-            <div class="auth-step">
-              <div class="auth-step-title">步骤 2：打开授权页面</div>
-              <a class="auth-link" id="authUrl" href="#" target="_blank">点击打开授权页面</a>
+            <button class="auth-btn" id="openAuthBtn">打开百度授权页面</button>
+            
+            <div class="auth-step" style="margin-top:24px;">
+              <div class="auth-step-title">粘贴 Access Token</div>
+              <input type="text" class="auth-input" id="tokenInput" placeholder="粘贴从回调页面复制的 Token">
+              <button class="auth-btn" id="saveBtn">保存 Token</button>
             </div>
             
-            <div class="auth-step">
-              <div class="auth-step-title">步骤 3：在授权页面输入设备码并登录</div>
-              <p style="color:#666;font-size:14px;">登录你的百度账号，输入上面的设备码完成授权</p>
-            </div>
+            <div class="status waiting" id="status" style="display:none;"></div>
             
-            <div class="status waiting" id="status">
-              ⏳ 等待授权中...（有效期 10 分钟）
-            </div>
-            
-            <button class="copy-btn" style="width:100%;margin-top:16px;" id="backBtn">
+            <button class="auth-btn" style="background:#6b7280;margin-top:16px;" id="backBtn">
               返回相册
             </button>
           </div>
@@ -88,110 +95,41 @@
 
   <script>
     const APP_KEY = 'AnykMXp2cFrjbv35enRfQEAXcTeYc5GM';
-    const SECRET_KEY = ''; // 软件类型需要 Secret Key，但前端不应暴露
+    const REDIRECT_URI = 'https://hujun20261.github.io/album/callback.html';
     
-    // 获取设备码
-    async function getDeviceCode() {
-      try {
-        const res = await fetch('https://openapi.baidu.com/oauth/2.0/device/code?' + new URLSearchParams({
-          client_id: APP_KEY,
-          response_type: 'device_code',
-          scope: 'basic,netdisk'
-        }), { method: 'POST' });
-        
-        const data = await res.json();
-        console.log('Device code response:', data);
-        
-        if (data.error) {
-          throw new Error(data.error_description || data.error);
-        }
-        
-        // 显示设备码和授权链接
-        document.getElementById('deviceCode').textContent = data.user_code;
-        document.getElementById('authUrl').href = data.verification_url;
-        document.getElementById('authUrl').textContent = data.verification_url;
-        document.getElementById('copyBtn').disabled = false;
-        
-        // 开始轮询获取 token
-        pollForToken(data.device_code, data.interval || 5, data.expires_in || 600);
-        
-      } catch (err) {
-        document.getElementById('deviceCode').textContent = '获取失败';
-        document.getElementById('status').className = 'status error';
-        document.getElementById('status').textContent = '❌ 错误: ' + err.message;
-        console.error(err);
+    const statusEl = document.getElementById('status');
+    
+    function showStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status ' + type;
+      statusEl.style.display = 'block';
+    }
+    
+    // 打开授权页面
+    document.getElementById('openAuthBtn').addEventListener('click', function() {
+      const authUrl = `https://openapi.baidu.com/oauth/2.0/authorize?response_type=token&client_id=${APP_KEY}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=basic,netdisk&display=mobile`;
+      window.open(authUrl, '_blank');
+    });
+    
+    // 保存 Token
+    document.getElementById('saveBtn').addEventListener('click', function() {
+      const token = document.getElementById('tokenInput').value.trim();
+      
+      if (!token) {
+        showStatus('❌ 请输入 Token', 'error');
+        return;
       }
-    }
-    
-    // 轮询获取 token
-    async function pollForToken(deviceCode, interval, expiresIn) {
-      const startTime = Date.now();
-      const timeout = expiresIn * 1000;
       
-      const poll = async () => {
-        if (Date.now() - startTime > timeout) {
-          document.getElementById('status').className = 'status error';
-          document.getElementById('status').textContent = '❌ 授权超时，请刷新页面重试';
-          return;
-        }
-        
-        try {
-          const res = await fetch('https://openapi.baidu.com/oauth/2.0/token?' + new URLSearchParams({
-            grant_type: 'device_token',
-            client_id: APP_KEY,
-            code: deviceCode
-          }), { method: 'POST' });
-          
-          const data = await res.json();
-          console.log('Token response:', data);
-          
-          if (data.access_token) {
-            // 授权成功！
-            localStorage.setItem('baidu-access-token', data.access_token);
-            localStorage.setItem('baidu-refresh-token', data.refresh_token);
-            localStorage.setItem('baidu-token-expires', Date.now() + data.expires_in * 1000);
-            
-            document.getElementById('status').className = 'status success';
-            document.getElementById('status').textContent = '✅ 授权成功！已绑定百度网盘';
-            
-            // 通知父窗口
-            if (window.opener) {
-              window.opener.postMessage({ type: 'baidu-auth-success' }, '*');
-            }
-            return;
-          }
-          
-          if (data.error === 'authorization_pending') {
-            // 用户还未授权，继续等待
-            setTimeout(poll, interval * 1000);
-            return;
-          }
-          
-          if (data.error === 'slow_down') {
-            // 轮询太快，增加间隔
-            setTimeout(poll, (interval + 5) * 1000);
-            return;
-          }
-          
-          // 其他错误
-          throw new Error(data.error_description || data.error);
-          
-        } catch (err) {
-          document.getElementById('status').className = 'status error';
-          document.getElementById('status').textContent = '❌ 错误: ' + err.message;
-        }
-      };
+      // 保存到 localStorage
+      localStorage.setItem('baidu-access-token', token);
+      localStorage.setItem('baidu-token-expires', Date.now() + 30 * 24 * 60 * 60 * 1000); // 30天
       
-      setTimeout(poll, interval * 1000);
-    }
-    
-    // 复制按钮
-    document.getElementById('copyBtn').addEventListener('click', function() {
-      const code = document.getElementById('deviceCode').textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        this.textContent = '已复制！';
-        setTimeout(() => this.textContent = '复制设备码', 2000);
-      });
+      showStatus('✅ Token 已保存！授权成功', 'success');
+      
+      // 通知父窗口
+      if (window.opener) {
+        window.opener.postMessage({ type: 'baidu-auth-success' }, '*');
+      }
     });
     
     // 返回按钮
@@ -199,8 +137,16 @@
       window.location.href = 'simple.html';
     });
     
-    // 启动
-    getDeviceCode();
+    // 检查是否从回调页面返回（URL 中有 token）
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      const params = new URLSearchParams(hash.replace(/^#/, ''));
+      const token = params.get('access_token');
+      if (token) {
+        document.getElementById('tokenInput').value = token;
+        showStatus('✅ 检测到 Token，请点击保存', 'success');
+      }
+    }
   </script>
 </body>
 </html>
