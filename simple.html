@@ -122,15 +122,8 @@
       `;
       
       $('authBtn').onclick = () => {
-        const key = $('appKey').value.trim();
-        if (!key) {
-          showToast('请先填写 App Key');
-          return;
-        }
-        // 打开授权窗口
-        const redirectUri = 'https://hujun20261.github.io/album/callback.html';
-        const authUrl = `https://openapi.baidu.com/oauth/2.0/authorize?response_type=token&client_id=${key}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=basic,netdisk&display=mobile`;
-        window.open(authUrl, 'baidu_auth', 'width=500,height=600');
+        // 跳转到设备授权页面（软件类型需要使用设备码授权）
+        window.location.href = 'auth-baidu.html';
       };
       
       $('saveBtn').onclick = () => {
