@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>私密相册 - 简化版</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">🔒 私密相册</div>
+      <nav class="nav">
+        <a class="nav-item" data-view="home"><span class="ni">🏠</span>首页</a>
+        <a class="nav-item" data-view="photos"><span class="ni">🖼️</span>全部照片</a>
+        <a class="nav-item" data-view="albums"><span class="ni">📁</span>相册</a>
+        <a class="nav-item" data-view="videos"><span class="ni">🎬</span>视频</a>
+        <a class="nav-item" data-view="favorites"><span class="ni">⭐</span>收藏</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a class="nav-item" data-view="settings"><span class="ni">⚙️</span>设置</a>
+      </div>
+    </aside>
+
+    <div class="overlay" id="overlay" hidden></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-btn" id="menuBtn">☰</button>
+        <h1 class="topbar-title" id="topTitle">首页</h1>
+        <div class="topbar-actions">
+          <div class="storage" id="storage">
+            <div class="storage-text" id="storageText">0 B / 5.0 GB</div>
+            <div class="storage-bar"><div class="storage-fill" id="storageFill"></div></div>
+          </div>
+          <button class="btn btn-primary" id="uploadBtn">＋ 上传</button>
+        </div>
+      </header>
+      <section class="content" id="content"></section>
+    </main>
+
+    <nav class="tabbar" id="tabbar">
+      <a class="tab-item active" data-view="home"><span class="ti">🏠</span><span>首页</span></a>
+      <a class="tab-item" data-view="photos"><span class="ti">🖼️</span><span>照片</span></a>
+      <a class="tab-item" data-view="albums"><span class="ti">📁</span><span>相册</span></a>
+      <a class="tab-item" data-view="settings"><span class="ti">⚙️</span><span>设置</span></a>
+    </nav>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden>
+
+  <script type="module">
+    // 简化版 - 只保留核心功能
+    const $ = (id) => document.getElementById(id);
+    
+    const sidebar = $('sidebar');
+    const overlay = $('overlay');
+    const menuBtn = $('menuBtn');
+    const content = $('content');
+    const fileInput = $('fileInput');
+    const uploadBtn = $('uploadBtn');
+    
+    let currentView = 'home';
+    
+    function showToast(msg) {
+      const div = document.createElement('div');
+      div.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;';
+      div.textContent = msg;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 2000);
+    }
+    
+    function openDrawer() { sidebar.classList.add('open'); overlay.hidden = false; }
+    function closeDrawer() { sidebar.classList.remove('open'); overlay.hidden = true; }
+    
+    function renderHome() {
+      content.innerHTML = `
+        <div class="home-grid">
+          <div class="stat-card" onclick="navigate('photos')">
+            <div class="sc-icon">🖼️</div>
+            <div class="sc-title">全部照片</div>
+            <div class="sc-num">0</div>
+          </div>
+          <div class="stat-card" onclick="navigate('albums')">
+            <div class="sc-icon">📁</div>
+            <div class="sc-title">相册</div>
+            <div class="sc-num">0</div>
+          </div>
+          <div class="stat-card" onclick="navigate('videos')">
+            <div class="sc-icon">🎬</div>
+            <div class="sc-title">视频</div>
+            <div class="sc-num">0</div>
+          </div>
+          <div class="stat-card" onclick="navigate('favorites')">
+            <div class="sc-icon">⭐</div>
+            <div class="sc-title">收藏</div>
+            <div class="sc-num">0</div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderSettings() {
+      content.innerHTML = `
+        <div class="settings" style="max-width:520px;margin:0 auto;padding:20px;">
+          <h2>☁️ 百度网盘同步</h2>
+          <p style="color:#666;font-size:14px;">绑定百度网盘后，照片和视频会备份到你自己的网盘空间。</p>
+          
+          <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin:16px 0;">
+            <div style="font-size:24px;margin-bottom:8px;">⚠️</div>
+            <div style="font-weight:500;">未授权</div>
+            <button class="btn" id="authBtn" style="margin-top:12px;">授权登录</button>
+          </div>
+          
+          <label style="display:block;margin:16px 0;">
+            <span style="display:block;margin-bottom:4px;font-size:14px;">App Key</span>
+            <input type="text" id="appKey" placeholder="在百度开放平台申请" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
+          </label>
+          
+          <button class="btn" id="saveBtn">保存配置</button>
+        </div>
+      `;
+      
+      $('authBtn').onclick = () => {
+        const key = $('appKey').value.trim();
+        if (!key) {
+          showToast('请先填写 App Key');
+          return;
+        }
+        // 打开授权窗口
+        const redirectUri = 'https://hujun20261.github.io/album/callback.html';
+        const authUrl = `https://openapi.baidu.com/oauth/2.0/authorize?response_type=token&client_id=${key}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=basic,netdisk&display=mobile`;
+        window.open(authUrl, 'baidu_auth', 'width=500,height=600');
+      };
+      
+      $('saveBtn').onclick = () => {
+        const key = $('appKey').value.trim();
+        if (key) {
+          localStorage.setItem('baidu-app-key', key);
+          showToast('配置已保存');
+        }
+      };
+    }
+    
+    window.navigate = function(view) {
+      currentView = view;
+      $('topTitle').textContent = 
+        view === 'home' ? '首页' :
+        view === 'photos' ? '全部照片' :
+        view === 'albums' ? '相册' :
+        view === 'videos' ? '视频' :
+        view === 'favorites' ? '收藏' :
+        view === 'settings' ? '设置' : '相册';
+      
+      document.querySelectorAll('.nav-item, .tab-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.view === view);
+      });
+      
+      if (view === 'home') renderHome();
+      else if (view === 'settings') renderSettings();
+      else content.innerHTML = `<div style="padding:40px;text-align:center;color:#999;">${$('topTitle').textContent} - 功能开发中</div>`;
+      
+      closeDrawer();
+    };
+    
+    // 事件绑定
+    document.querySelectorAll('.nav-item, .tab-item').forEach(el => {
+      el.addEventListener('click', () => navigate(el.dataset.view));
+    });
+    
+    menuBtn.addEventListener('click', openDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      showToast(`选择了 ${e.target.files.length} 个文件`);
+      e.target.value = '';
+    });
+    
+    // 启动
+    renderHome();
+    showToast('简化版相册已加载');
+  </script>
+</body>
+</html>
