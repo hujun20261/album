@@ -16,6 +16,12 @@ import {
   saveConfig, loadConfig, isConfigured, backupToCloud, restoreFromCloud,
 } from './sync.js';
 
+import {
+  saveBaiduConfig, loadBaiduConfig, isConfigured as isBaiduConfigured, isAuthorized as isBaiduAuthorized,
+  getAuthUrl, parseTokenFromHash, clearToken as clearBaiduToken, getUserInfo,
+  backupToBaidu, restoreFromBaidu,
+} from './baidu-sync.js';
+
 /* ===================== DOM 引用 ===================== */
 const $ = (id) => document.getElementById(id);
 
@@ -294,23 +300,158 @@ async function renderSettings() {
   const url = cfg ? cfg.url : '';
   const key = cfg ? cfg.anonKey : '';
   const ok = isConfigured();
+  
+  // 百度网盘状态
+  const baiduCfg = loadBaiduConfig();
+  const baiduOk = isBaiduConfigured();
+  const baiduAuth = isBaiduAuthorized();
+  
   content.innerHTML = `
     <div class="settings">
-      <h2 class="section-title">云同步设置</h2>
-      <p class="hint">开启云同步后，数据会备份到你的 Supabase 云端，换设备也能恢复。
-        配置仅保存在本机浏览器，不会上传给任何人。</p>
-      <label class="field"><span>Supabase Project URL</span>
-        <input id="cfgUrl" type="text" placeholder="https://xxxx.supabase.co" value="${escapeHtml(url)}"></label>
-      <label class="field"><span>anon key（公开密钥）</span>
-        <input id="cfgKey" type="password" placeholder="public anon key" value="${escapeHtml(key)}"></label>
-      <div class="settings-actions">
-        <button class="btn" id="saveCfg">保存配置</button>
-        <button class="btn btn-primary" id="backupBtn" ${ok ? '' : 'disabled'}>备份到云端</button>
-        <button class="btn" id="restoreBtn" ${ok ? '' : 'disabled'}>从云端恢复</button>
+      <!-- 百度网盘同步 -->
+      <h2 class="section-title">☁️ 百度网盘同步</h2>
+      <p class="hint">绑定百度网盘后，照片和视频会备份到你自己的网盘空间。
+        数据完全由你掌控，不会上传到任何第三方服务器。</p>
+      
+      <div class="baidu-status ${baiduAuth ? 'authorized' : ''}">
+        <span class="status-icon">${baiduAuth ? '✅' : '⚠️'}</span>
+        <span class="status-text">${baiduAuth ? '已授权' : '未授权'}</span>
+        <button class="btn" id="baiduAuthBtn">${baiduAuth ? '重新授权' : '授权登录'}</button>
+        ${baiduAuth ? '<button class="btn ghost" id="baiduLogoutBtn">退出登录</button>' : ''}
       </div>
-      <p class="hint" id="syncStatus"></p>
-      <p class="hint">未填写配置时，备份/恢复按钮不可用。开通方法与建表语句见 README.md。</p>
+      
+      <label class="field"><span>App Key（可选，留空使用默认）</span>
+        <input id="baiduAppKey" type="text" placeholder="在百度开放平台申请" value="${escapeHtml(baiduCfg.appKey || '')}"></label>
+      <label class="field"><span>回调地址（需与开放平台配置一致）</span>
+        <input id="baiduRedirect" type="text" placeholder="https://your-site.com/callback.html" value="${escapeHtml(baiduCfg.redirectUri || '')}"></label>
+      
+      <div class="settings-actions">
+        <button class="btn" id="saveBaiduCfg">保存百度网盘配置</button>
+        <button class="btn btn-primary" id="baiduBackupBtn" ${baiduAuth ? '' : 'disabled'}>备份到百度网盘</button>
+        <button class="btn" id="baiduRestoreBtn" ${baiduAuth ? '' : 'disabled'}>从百度网盘恢复</button>
+      </div>
+      <p class="hint" id="baiduStatus"></p>
+      
+      <!-- Supabase 同步（备选方案） -->
+      <details class="advanced-section">
+        <summary>高级：Supabase 云同步（备选方案）</summary>
+        <p class="hint">如果你有 Supabase 账号，也可以用它来同步数据。</p>
+        <label class="field"><span>Supabase Project URL</span>
+          <input id="cfgUrl" type="text" placeholder="https://xxxx.supabase.co" value="${escapeHtml(url)}"></label>
+        <label class="field"><span>anon key（公开密钥）</span>
+          <input id="cfgKey" type="password" placeholder="public anon key" value="${escapeHtml(key)}"></label>
+        <div class="settings-actions">
+          <button class="btn" id="saveCfg">保存 Supabase 配置</button>
+          <button class="btn" id="backupBtn" ${ok ? '' : 'disabled'}>备份到 Supabase</button>
+          <button class="btn" id="restoreBtn" ${ok ? '' : 'disabled'}>从 Supabase 恢复</button>
+        </div>
+        <p class="hint" id="syncStatus"></p>
+      </details>
     </div>`;
+
+  // 绑定百度网盘交互
+  $('saveBaiduCfg').onclick = () => {
+    const appKey = $('baiduAppKey').value.trim();
+    const redirectUri = $('baiduRedirect').value.trim() || 'https://hujun20261.github.io/album/callback.html';
+    if (!appKey || appKey === '你的AppKey') {
+      showToast('请填写有效的 App Key');
+      return;
+    }
+    saveBaiduConfig('', appKey, redirectUri);
+    showToast('百度网盘配置已保存');
+  };
+  
+  $('baiduAuthBtn').onclick = () => {
+    const authUrl = getAuthUrl();
+    // 打开授权窗口
+    const width = 600;
+    const height = 500;
+    const left = (screen.width - width) / 2;
+    const top = (screen.height - height) / 2;
+    window.open(authUrl, 'baidu-auth', `width=${width},height=${height},left=${left},top=${top}`);
+  };
+  
+  if ($('baiduLogoutBtn')) {
+    $('baiduLogoutBtn').onclick = () => {
+      clearBaiduToken();
+      showToast('已退出百度网盘');
+      refresh();
+    };
+  }
+  
+  $('baiduBackupBtn').onclick = async () => {
+    if (!isBaiduAuthorized()) { showToast('请先授权百度网盘'); return; }
+    const status = $('baiduStatus');
+    try {
+      const photos = await getAllPhotos();
+      const albums = await getAlbums();
+      if (!photos.length) {
+        showToast('没有照片可备份');
+        return;
+      }
+      await backupToBaidu(photos, albums, (msg) => { status.textContent = msg; });
+      status.textContent = '备份完成 ✅';
+      showToast('已备份到百度网盘');
+    } catch (e) {
+      status.textContent = '备份失败：' + e.message;
+      showToast('备份失败');
+    }
+  };
+  
+  $('baiduRestoreBtn').onclick = async () => {
+    if (!isBaiduAuthorized()) { showToast('请先授权百度网盘'); return; }
+    const status = $('baiduStatus');
+    try {
+      await restoreFromBaidu(addPhoto, addAlbum, (msg) => { status.textContent = msg; });
+      status.textContent = '恢复完成 ✅';
+      showToast('已从百度网盘恢复');
+      await refresh();
+    } catch (e) {
+      status.textContent = '恢复失败：' + e.message;
+      showToast('恢复失败');
+    }
+  };
+
+  // 绑定 Supabase 设置页交互（折叠在高级选项里）
+  $('saveCfg').onclick = () => {
+    const u = $('cfgUrl').value.trim();
+    const k = $('cfgKey').value.trim();
+    if (!u || !k) { showToast('请填写完整'); return; }
+    saveConfig(u, k);
+    showToast('Supabase 配置已保存');
+    $('backupBtn').disabled = false;
+    $('restoreBtn').disabled = false;
+  };
+  $('backupBtn').onclick = async () => {
+    if (!isConfigured()) { showToast('请先保存配置'); return; }
+    const status = $('syncStatus');
+    status.textContent = '正在备份…';
+    try {
+      const photos = await getAllPhotos();
+      const albums = await getAlbums();
+      await backupToCloud(photos, albums, (i, n) => { status.textContent = `备份中 ${i}/${n}`; });
+      status.textContent = '备份完成 ✅';
+      showToast('已备份到云端');
+    } catch (e) {
+      status.textContent = '备份失败：' + e.message;
+      showToast('备份失败');
+    }
+  };
+  $('restoreBtn').onclick = async () => {
+    if (!isConfigured()) { showToast('请先保存配置'); return; }
+    const status = $('syncStatus');
+    status.textContent = '正在恢复…';
+    try {
+      await restoreFromCloud(addPhoto, addAlbum, (i, n) => { status.textContent = `恢复中 ${i}/${n}`; });
+      status.textContent = '恢复完成 ✅';
+      showToast('已从云端恢复');
+      await refresh();
+    } catch (e) {
+      status.textContent = '恢复失败：' + e.message;
+      showToast('恢复失败');
+    }
+  };
+}
 
   // 绑定设置页交互
   $('saveCfg').onclick = () => {

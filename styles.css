@@ -419,6 +419,45 @@ body {
 .settings-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
 .settings-actions .btn { flex: 1; min-width: 120px; }
 
+/* 百度网盘状态 */
+.baidu-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 14px 0;
+}
+.baidu-status.authorized {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+.status-icon { font-size: 24px; }
+.status-text { flex: 1; font-weight: 500; }
+
+/* 高级选项折叠 */
+.advanced-section {
+  margin-top: 32px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.advanced-section summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-soft);
+  user-select: none;
+}
+.advanced-section summary:hover {
+  color: var(--text);
+}
+.advanced-section[open] summary {
+  margin-bottom: 16px;
+}
+
 /* ===== Toast ===== */
 .toast {
   position: fixed; left: 50%; bottom: 90px;
