@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>调试 - 相册问题排查</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+    h1 { color: #fff; }
+    .test { margin: 10px 0; padding: 10px; background: #333; border-radius: 5px; }
+    .pass { color: #0f0; }
+    .fail { color: #f00; }
+    .info { color: #ff0; }
+  </style>
+</head>
+<body>
+  <h1>🔍 相册问题排查</h1>
+  <div id="results"></div>
+  
+  <script type="module">
+    const results = document.getElementById('results');
+    
+    function log(text, type = 'info') {
+      const div = document.createElement('div');
+      div.className = 'test ' + type;
+      div.textContent = text;
+      results.appendChild(div);
+      console.log(text);
+    }
+    
+    // 测试 1: 页面加载
+    log('✅ 页面加载成功', 'pass');
+    
+    // 测试 2: 检查 DOM 元素
+    const elements = ['content', 'sidebar', 'menuBtn', 'uploadBtn', 'tabbar'];
+    elements.forEach(id => {
+      const el = document.getElementById(id);
+      log(`${el ? '✅' : '❌'} 元素 #${id}: ${el ? '存在' : '不存在'}`, el ? 'pass' : 'fail');
+    });
+    
+    // 测试 3: IndexedDB
+    try {
+      const dbs = await indexedDB.databases();
+      log(`✅ IndexedDB 可用 (${dbs.length} 个数据库)`, 'pass');
+    } catch (e) {
+      log(`❌ IndexedDB 错误: ${e.message}`, 'fail');
+    }
+    
+    // 测试 4: 尝试加载主模块
+    log('正在加载 app.js...', 'info');
+    try {
+      await import('./app.js');
+      log('✅ app.js 加载成功', 'pass');
+    } catch (e) {
+      log(`❌ app.js 加载失败: ${e.message}`, 'fail');
+      log(`错误详情: ${e.stack}`, 'fail');
+    }
+  </script>
+</body>
+</html>
