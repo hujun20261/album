@@ -14,6 +14,7 @@
       align-items: center;
       justify-content: center;
       color: #fff;
+      padding: 20px;
     }
     .card {
       background: rgba(255,255,255,0.95);
@@ -23,10 +24,11 @@
       box-shadow: 0 10px 40px rgba(0,0,0,0.2);
       text-align: center;
       max-width: 400px;
+      width: 100%;
     }
     .icon { font-size: 48px; margin-bottom: 1rem; }
     .title { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
-    .desc { color: #666; margin-bottom: 1.5rem; }
+    .desc { color: #666; margin-bottom: 1.5rem; font-size: 14px; word-break: break-all; }
     .btn {
       background: #6366f1;
       color: #fff;
@@ -39,6 +41,15 @@
     }
     .btn:hover { background: #5558e3; }
     .error { color: #ef4444; }
+    .token-box {
+      background: #f3f4f6;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      word-break: break-all;
+      margin: 10px 0;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
@@ -46,17 +57,34 @@
     <div class="icon" id="icon">⏳</div>
     <div class="title" id="title">正在处理授权...</div>
     <div class="desc" id="desc">请稍候</div>
-    <button class="btn" id="closeBtn" style="display:none;" onclick="window.close()">关闭窗口</button>
+    <div class="token-box" id="tokenBox" style="display:none;"></div>
+    <button class="btn" id="closeBtn" style="display:none;">关闭窗口</button>
   </div>
 
-  <script type="module">
-    import { parseTokenFromHash } from './baidu-sync.js';
+  <script>
+    // 内联实现，不依赖外部模块
+    function parseTokenFromHash(hash) {
+      const params = new URLSearchParams(hash.replace(/^#/, ''));
+      return {
+        token: params.get('access_token'),
+        expiresIn: params.get('expires_in'),
+        scope: params.get('scope')
+      };
+    }
     
-    function showSuccess() {
+    function showSuccess(token) {
       document.getElementById('icon').textContent = '✅';
       document.getElementById('title').textContent = '授权成功';
-      document.getElementById('desc').textContent = '已成功绑定百度网盘，可以关闭此窗口返回相册';
+      document.getElementById('desc').textContent = '已成功绑定百度网盘！';
       document.getElementById('closeBtn').style.display = 'inline-block';
+      
+      // 保存到 localStorage
+      localStorage.setItem('baidu-access-token', token);
+      
+      // 显示部分 token
+      const tokenBox = document.getElementById('tokenBox');
+      tokenBox.textContent = 'Token: ' + token.substring(0, 20) + '...';
+      tokenBox.style.display = 'block';
     }
     
     function showError(msg) {
@@ -64,18 +92,36 @@
       document.getElementById('title').textContent = '授权失败';
       document.getElementById('desc').textContent = msg;
       document.getElementById('desc').classList.add('error');
+      document.getElementById('closeBtn').style.display = 'inline-block';
     }
+    
+    // 关闭按钮
+    document.getElementById('closeBtn').addEventListener('click', function() {
+      if (window.opener) {
+        window.opener.postMessage({ type: 'baidu-auth-success' }, '*');
+        window.close();
+      } else {
+        // 如果没有 opener，跳转回相册
+        window.location.href = 'https://hujun20261.github.io/album/simple.html';
+      }
+    });
     
     // 解析 URL hash 中的 token
     const hash = window.location.hash;
+    console.log('Hash:', hash);
+    
     if (hash && hash.includes('access_token')) {
       try {
         const result = parseTokenFromHash(hash);
+        console.log('Parsed:', result);
         if (result && result.token) {
-          showSuccess();
+          showSuccess(result.token);
           // 通知父窗口
           if (window.opener) {
-            window.opener.postMessage({ type: 'baidu-auth-success' }, '*');
+            window.opener.postMessage({ 
+              type: 'baidu-auth-success',
+              token: result.token 
+            }, '*');
           }
         } else {
           showError('未能获取访问令牌');
@@ -84,13 +130,12 @@
         showError('解析令牌失败：' + e.message);
       }
     } else if (hash && hash.includes('error')) {
-      // 处理错误情况
       const params = new URLSearchParams(hash.replace(/^#/, ''));
       const error = params.get('error');
       const errorDesc = params.get('error_description');
       showError(errorDesc || error || '授权被拒绝');
     } else {
-      showError('无效的回调参数');
+      showError('无效的回调参数，请重新授权');
     }
   </script>
 </body>
