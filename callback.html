@@ -28,7 +28,17 @@
     }
     .icon { font-size: 48px; margin-bottom: 1rem; }
     .title { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
-    .desc { color: #666; margin-bottom: 1.5rem; font-size: 14px; word-break: break-all; }
+    .desc { color: #666; margin-bottom: 1.5rem; font-size: 14px; }
+    .token-box {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      word-break: break-all;
+      margin: 10px 0;
+      font-family: monospace;
+      border: 1px solid #ddd;
+    }
     .btn {
       background: #6366f1;
       color: #fff;
@@ -38,18 +48,11 @@
       font-size: 1rem;
       cursor: pointer;
       transition: background 0.2s;
+      margin: 8px;
     }
     .btn:hover { background: #5558e3; }
+    .btn.secondary { background: #6b7280; }
     .error { color: #ef4444; }
-    .token-box {
-      background: #f3f4f6;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      word-break: break-all;
-      margin: 10px 0;
-      font-family: monospace;
-    }
   </style>
 </head>
 <body>
@@ -58,11 +61,13 @@
     <div class="title" id="title">正在处理授权...</div>
     <div class="desc" id="desc">请稍候</div>
     <div class="token-box" id="tokenBox" style="display:none;"></div>
-    <button class="btn" id="closeBtn" style="display:none;">关闭窗口</button>
+    <div id="buttons" style="display:none;">
+      <button class="btn" id="copyBtn">复制 Token</button>
+      <button class="btn secondary" id="backBtn">返回授权页面</button>
+    </div>
   </div>
 
   <script>
-    // 内联实现，不依赖外部模块
     function parseTokenFromHash(hash) {
       const params = new URLSearchParams(hash.replace(/^#/, ''));
       return {
@@ -75,16 +80,16 @@
     function showSuccess(token) {
       document.getElementById('icon').textContent = '✅';
       document.getElementById('title').textContent = '授权成功';
-      document.getElementById('desc').textContent = '已成功绑定百度网盘！';
-      document.getElementById('closeBtn').style.display = 'inline-block';
+      document.getElementById('desc').innerHTML = '请复制下面的 Token，然后返回授权页面粘贴保存。<br><br><strong>注意：Token 是敏感信息，请勿泄露给他人</strong>';
       
-      // 保存到 localStorage
-      localStorage.setItem('baidu-access-token', token);
-      
-      // 显示部分 token
       const tokenBox = document.getElementById('tokenBox');
-      tokenBox.textContent = 'Token: ' + token.substring(0, 20) + '...';
+      tokenBox.textContent = token;
       tokenBox.style.display = 'block';
+      
+      document.getElementById('buttons').style.display = 'block';
+      
+      // 保存到 localStorage（可选）
+      localStorage.setItem('baidu-access-token', token);
     }
     
     function showError(msg) {
@@ -92,18 +97,21 @@
       document.getElementById('title').textContent = '授权失败';
       document.getElementById('desc').textContent = msg;
       document.getElementById('desc').classList.add('error');
-      document.getElementById('closeBtn').style.display = 'inline-block';
+      document.getElementById('buttons').style.display = 'block';
     }
     
-    // 关闭按钮
-    document.getElementById('closeBtn').addEventListener('click', function() {
-      if (window.opener) {
-        window.opener.postMessage({ type: 'baidu-auth-success' }, '*');
-        window.close();
-      } else {
-        // 如果没有 opener，跳转回相册
-        window.location.href = 'https://hujun20261.github.io/album/simple.html';
-      }
+    // 复制按钮
+    document.getElementById('copyBtn').addEventListener('click', function() {
+      const token = document.getElementById('tokenBox').textContent;
+      navigator.clipboard.writeText(token).then(() => {
+        this.textContent = '已复制！';
+        setTimeout(() => this.textContent = '复制 Token', 2000);
+      });
+    });
+    
+    // 返回按钮
+    document.getElementById('backBtn').addEventListener('click', function() {
+      window.location.href = 'auth-baidu.html';
     });
     
     // 解析 URL hash 中的 token
@@ -116,13 +124,6 @@
         console.log('Parsed:', result);
         if (result && result.token) {
           showSuccess(result.token);
-          // 通知父窗口
-          if (window.opener) {
-            window.opener.postMessage({ 
-              type: 'baidu-auth-success',
-              token: result.token 
-            }, '*');
-          }
         } else {
           showError('未能获取访问令牌');
         }
