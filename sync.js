@@ -10,6 +10,12 @@
 const STORAGE_KEY = 'album-supabase-config';
 const BUCKET = 'album-media'; // 云端存储桶名称（需与 README 中建桶一致）
 
+// 内置默认云端配置（已为你开通，开箱即用；如需更换可在“设置”页覆盖保存）
+const DEFAULT_CONFIG = {
+  url: 'https://wkslsedshzbgkgffrubk.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indrc2xzZWRzaHpiZ2tnZmZydWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4OTEzOTIsImV4cCI6MjA5OTQ2NzM5Mn0.ANR77SKZpIOHPF_3IUdZd40fS6PGBMDjrQYlp-fPBiA'
+};
+
 /* ---------- 配置（仅保存在本机 localStorage，绝不上传） ---------- */
 
 /** 保存 Supabase 配置 */
@@ -20,10 +26,10 @@ export function saveConfig(url, anonKey) {
 /** 读取配置 */
 export function loadConfig() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null;
-  } catch {
-    return null;
-  }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return DEFAULT_CONFIG; // 未手动配置时回退到内置默认云端
 }
 
 /** 是否已正确配置 */
